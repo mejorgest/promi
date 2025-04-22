@@ -1,225 +1,205 @@
-datos = pd.read_csv('../../.././../datos/EjemploEstudiantes.csv', delimiter = ';', decimal = ",", index_col = 0)
-datos
+datos = pd.read_csv('../../../../datos/MuestraCredito5000V2.csv', delimiter = ';', decimal = ".")
+datos.info()
 
-escalar = StandardScaler()
-datos_escalados = escalar.fit_transform(datos)
-datos_escalados = pd.DataFrame(datos_escalados)
-datos_escalados.columns = datos.columns
-datos_escalados.index = datos.index
-datos_escalados
 
-pca = PCA(n_components = 5)
-pca.fit(datos_escalados)
+datos["IngresoNeto"] = datos["IngresoNeto"].astype('category')
+datos["CoefCreditoAvaluo"] = datos["CoefCreditoAvaluo"].astype('category')
+datos["MontoCuota"] = datos["MontoCuota"].astype('category')
+datos["GradoAcademico"] = datos["GradoAcademico"].astype('category')
+datos.info()
 
-individuos = pca.row_coordinates(datos_escalados)
-individuos
 
-x = individuos.iloc[:, 0]
-y = individuos.iloc[:, 1]
+def distribucion_variable_predecir(data:pd.DataFrame, variable_predict:str):
+  conteo     = data[variable_predict].value_counts()
+  valores    = conteo.to_list()
+  categorias = conteo.index.to_list()
+  titulo     = "Distribución de la variable %s" % variable_predict
+  
+  fig, ax = plt.subplots()
+  ax.bar(categorias, valores)
+  
+  ax.set_ylabel(variable_predict)
+  ax.set_title(titulo)
+  
+  for i, valor in enumerate(valores):
+    porc = round(valor / sum(valores) * 100, 2)
+    text = str(valor) + "\n" + str(porc) + "%"
+    ax.text(i, valor * 0.45, text, color='white', ha='center', fontsize=10)
+  
+  return(fig)
 
-fig, ax = plt.subplots(figsize = (10, 6))
 
-no_print = ax.scatter(x, y, color = 'steelblue')
-
-no_print  = ax.axhline(y = 0, color = 'dimgrey', linestyle = '--')
-no_print  = ax.axvline(x = 0, color = 'dimgrey', linestyle = '--')
-inercia_x = round(pca.percentage_of_variance_[0], 2)
-inercia_y = round(pca.percentage_of_variance_[1], 2)
-no_print  = ax.set_xlabel('Componente 1' + ' (' + str(inercia_x) + '%)')
-no_print  = ax.set_ylabel('Componente 2' + ' (' + str(inercia_y) + '%)')
-
-for i in range(individuos.shape[0]):
-  no_print = ax.annotate(individuos.index[i], (x[i], y[i]))
-
+  fig = distribucion_variable_predecir(datos, "BuenPagador")
 plt.show()
 
-umap = UMAP(n_components = 2, n_neighbors = 2)
-individuos = umap.fit_transform(datos_escalados)
-individuos = pd.DataFrame(individuos, index=datos_escalados.index)
-individuos
+def poder_predictivo_numerica(data:pd.DataFrame, var:str, variable_predict:str):
+  g = sns.FacetGrid(data, hue = variable_predict, height = 4, aspect = 1.8)
+  g = g.map(sns.kdeplot, var, fill = True)
+  g = g.add_legend()
+  
+  g.set_ylabels("Densidad")
+  
+  return(g)
 
-x = individuos.iloc[:, 0]
-y = individuos.iloc[:, 1]
-
-fig, ax = plt.subplots(figsize = (10, 6))
-
-no_print = ax.scatter(x, y, color = 'steelblue')
-
-no_print  = ax.axhline(y = 0, color = 'dimgrey', linestyle = '--')
-no_print  = ax.axvline(x = 0, color = 'dimgrey', linestyle = '--')
-no_print  = ax.set_xlabel('Componente 1')
-no_print  = ax.set_ylabel('Componente 2')
-
-for i in range(individuos.shape[0]):
-  no_print = ax.annotate(individuos.index[i], (x[i], y[i]))
-
+  fig = poder_predictivo_numerica(datos, "MontoCredito", "BuenPagador")
 plt.show()
 
-tsne = TSNE(n_components=2, perplexity=2, learning_rate='auto', init='random')
-individuos = tsne.fit_transform(datos_escalados)
-individuos = pd.DataFrame(individuos, index=datos_escalados.index)
-individuos
 
-x = individuos.iloc[:, 0]
-y = individuos.iloc[:, 1]
+def poder_predictivo_categorica(data: pd.DataFrame, var: str, variable_predict: str):
+  titulo = "Distribución de la variable %s según la variable %s" % (var, variable_predict)
+  
+  fig, ax = plt.subplots()
+  
+  for cat_predictora in data[var].unique():
+    conteo     = data.loc[data[var] == cat_predictora, variable_predict].value_counts()
+    valores    = conteo.to_numpy()
+    categorias = conteo.index.to_numpy()
+    porcentaje = valores / sum(valores) * 100
+    porcentaje = porcentaje.round(2)
+    
+    pos_text = 0
+    for i in range(len(porcentaje)):
+      if i == 0:
+        ax.barh(cat_predictora, porcentaje[i], label=categorias[i], color = plt.cm.tab10(i))
+      else:
+        ax.barh(cat_predictora, porcentaje[i], left=porcentaje[i-1], label=categorias[i], color = plt.cm.tab10(i))
+      
+      ax.text(pos_text + porcentaje[i] / 2, cat_predictora,
+              str(porcentaje[i]) + "%\n" + str(valores[i]), 
+              va='center', ha='center', color='white', fontsize=10)
+      pos_text = pos_text + porcentaje[i]
+  
+  ax.set_title(titulo)
+  handles, labels = ax.get_legend_handles_labels()
+  unique = [(h, l) for i, (h, l) in enumerate(zip(handles, labels)) if l not in labels[:i]]
+  ax.legend(*zip(*unique), loc = 'upper center', bbox_to_anchor = (1.08, 1))
+  
+  return(fig)
 
-fig, ax = plt.subplots(figsize = (10, 6))
-
-no_print = ax.scatter(x, y, color = 'steelblue')
-
-no_print  = ax.axhline(y = 0, color = 'dimgrey', linestyle = '--')
-no_print  = ax.axvline(x = 0, color = 'dimgrey', linestyle = '--')
-no_print  = ax.set_xlabel('Componente 1')
-no_print  = ax.set_ylabel('Componente 2')
-
-for i in range(individuos.shape[0]):
-  no_print = ax.annotate(individuos.index[i], (x[i], y[i]))
-
+  fig = poder_predictivo_categorica(datos, "IngresoNeto", "BuenPagador")
 plt.show()
 
-datos = pd.read_csv('../../.././../datos/iris.csv', delimiter = ';', decimal = ",")
-pred = datos["tipo"]
-datos = datos.iloc[:, 0:4]
-
-escalar = StandardScaler()
-datos_escalados = escalar.fit_transform(datos)
-datos_escalados = pd.DataFrame(datos_escalados)
-datos_escalados.columns = datos.columns
-datos_escalados.index = datos.index
-datos_escalados
-
-pca = PCA(n_components = 5)
-no_print = pca.fit(datos_escalados)
-
-individuos = pca.row_coordinates(datos_escalados)
-
-x = individuos.iloc[:, 0]
-y = individuos.iloc[:, 1]
-
-fig, ax = plt.subplots(figsize = (10, 6))
-
-for cat in pred.unique():
-  no_print = ax.scatter(x[pred == cat], y[pred == cat], label = cat)
-
-no_print  = ax.axhline(y = 0, color = 'dimgrey', linestyle = '--')
-no_print  = ax.axvline(x = 0, color = 'dimgrey', linestyle = '--')
-no_print  = ax.set_xlabel('Componente 1')
-no_print  = ax.set_ylabel('Componente 2')
-
-no_print = plt.legend()
+fig = poder_predictivo_categorica(datos, "CoefCreditoAvaluo", "BuenPagador")
 plt.show()
 
-umap = UMAP(n_components = 2, n_neighbors = 25)
-individuos = umap.fit_transform(datos_escalados)
-individuos = pd.DataFrame(individuos, index=datos_escalados.index)
-
-x = individuos.iloc[:, 0]
-y = individuos.iloc[:, 1]
-
-fig, ax = plt.subplots(figsize = (10, 6))
-
-for cat in pred.unique():
-  no_print = ax.scatter(x[pred == cat], y[pred == cat], label = cat)
-
-no_print  = ax.axhline(y = 0, color = 'dimgrey', linestyle = '--')
-no_print  = ax.axvline(x = 0, color = 'dimgrey', linestyle = '--')
-no_print  = ax.set_xlabel('Componente 1')
-no_print  = ax.set_ylabel('Componente 2')
-
-no_print = plt.legend()
+fig = poder_predictivo_categorica(datos, "MontoCuota", "BuenPagador")
 plt.show()
 
-tsne = TSNE(n_components=2, perplexity=25, learning_rate='auto', init='random')
-individuos = tsne.fit_transform(datos_escalados)
-individuos = pd.DataFrame(individuos, index=datos_escalados.index)
-
-x = individuos.iloc[:, 0]
-y = individuos.iloc[:, 1]
-
-fig, ax = plt.subplots(figsize = (10, 6))
-
-for cat in pred.unique():
-  no_print = ax.scatter(x[pred == cat], y[pred == cat], label = cat)
-
-no_print  = ax.axhline(y = 0, color = 'dimgrey', linestyle = '--')
-no_print  = ax.axvline(x = 0, color = 'dimgrey', linestyle = '--')
-no_print  = ax.set_xlabel('Componente 1')
-no_print  = ax.set_ylabel('Componente 2')
-
-no_print = plt.legend()
+fig = poder_predictivo_categorica(datos, "GradoAcademico", "BuenPagador")
 plt.show()
 
-from sklearn import datasets
+datos = pd.read_csv('../../../../datos/MuestraCredito5000V2.csv', delimiter = ';', decimal = ".")
+datos.info()
 
-digitos = datasets.load_digits()
-datos = pd.DataFrame(digitos.data)
-pred  = pd.DataFrame(digitos.target)
-pred  = pred.iloc[:, 0]
+datos["IngresoNeto"] = datos["IngresoNeto"].astype('category')
+datos["CoefCreditoAvaluo"] = datos["CoefCreditoAvaluo"].astype('category')
+datos["MontoCuota"] = datos["MontoCuota"].astype('category')
+datos["GradoAcademico"] = datos["GradoAcademico"].astype('category')
+datos.info()
 
-escalar = StandardScaler()
-datos_escalados = escalar.fit_transform(datos)
-datos_escalados = pd.DataFrame(datos_escalados)
-datos_escalados.columns = datos.columns
-datos_escalados.index = datos.index
-datos_escalados
+X = datos.loc[:, datos.columns != 'BuenPagador']
+X
 
-pca = PCA(n_components = 5)
-no_print = pca.fit(datos_escalados)
+y = datos.loc[:, 'BuenPagador'].to_numpy()
+y[0:6]
 
-individuos = pca.row_coordinates(datos_escalados)
+X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.85)
 
-x = individuos.iloc[:, 0]
-y = individuos.iloc[:, 1]
+preprocesamiento = ColumnTransformer(
+  transformers=[
+    ('cat', OneHotEncoder(), ['IngresoNeto', 'CoefCreditoAvaluo', 'MontoCuota', 'GradoAcademico']),
+    ('num', StandardScaler(), ['MontoCredito'])
+  ]
+)
 
-fig, ax = plt.subplots(figsize = (10, 6))
+modelo = Pipeline(steps=[
+    ('preprocesador', preprocesamiento),
+    ('clasificador', KNeighborsClassifier(n_neighbors=3, metric = "minkowski"))
+])
 
-for cat in pred.unique():
-  no_print = ax.scatter(x[pred == cat], y[pred == cat], label = cat)
+modelo.fit(X_train, y_train)
 
-no_print  = ax.axhline(y = 0, color = 'dimgrey', linestyle = '--')
-no_print  = ax.axvline(x = 0, color = 'dimgrey', linestyle = '--')
-no_print  = ax.set_xlabel('Componente 1')
-no_print  = ax.set_ylabel('Componente 2')
+pred = modelo.predict(X_test)
+pred
 
-no_print = plt.legend()
+labels = ["Si", "No"]
+MC = confusion_matrix(y_test, pred, labels=labels)
+MC
+
+indices = indices_general(MC, labels)
+for k in indices:
+  print("\n%s:\n%s"%(k,str(indices[k])))
+
+
+
+n = round(datos.shape[0] ** 0.5)
+
+labels = ["Si", "No"]
+ks = list(range(2, n))
+errores = []
+
+for k in ks:
+  modelo = Pipeline(steps=[
+    ('preprocesador', preprocesamiento),
+    ('clasificador', KNeighborsClassifier(n_neighbors=k))
+  ])
+  no_print = modelo.fit(X_train, y_train)
+  pred = modelo.predict(X_test)
+  MC = confusion_matrix(y_test, pred, labels=labels)
+  indices = indices_general(MC, labels)
+  errores.append(indices["Error Global"])
+
+fig, ax = plt.subplots()
+no_print = ax.plot(ks, errores)
+no_print = ax.set_xlabel("Valor de K")
+no_print = ax.set_ylabel("Error Global")
 plt.show()
 
-umap = UMAP(n_components = 2, n_neighbors = 89)
-individuos = umap.fit_transform(datos_escalados)
-individuos = pd.DataFrame(individuos, index=datos_escalados.index)
+datos = datos.loc[:, ["IngresoNeto", "CoefCreditoAvaluo", "MontoCuota", "GradoAcademico", "BuenPagador"]]
+datos.info()
 
-x = individuos.iloc[:, 0]
-y = individuos.iloc[:, 1]
+X = datos.loc[:, datos.columns != 'BuenPagador']
+X
+y = datos.loc[:, 'BuenPagador'].to_numpy()
+y[0:6]
 
-fig, ax = plt.subplots(figsize = (10, 6))
+X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.85)
 
-for cat in pred.unique():
-  no_print = ax.scatter(x[pred == cat], y[pred == cat], label = cat)
+preprocesamiento = ColumnTransformer(
+  transformers=[
+    ('cat', OneHotEncoder(), ['IngresoNeto', 'CoefCreditoAvaluo', 'MontoCuota', 'GradoAcademico'])
+  ]
+)
 
-no_print  = ax.axhline(y = 0, color = 'dimgrey', linestyle = '--')
-no_print  = ax.axvline(x = 0, color = 'dimgrey', linestyle = '--')
-no_print  = ax.set_xlabel('Componente 1')
-no_print  = ax.set_ylabel('Componente 2')
+modelo = Pipeline(steps=[
+    ('preprocesador', preprocesamiento),
+    ('clasificador', KNeighborsClassifier(n_neighbors=5))
+])
 
-no_print = plt.legend()
-plt.show()
+modelo.fit(X_train, y_train)
 
-tsne = TSNE(n_components=2, perplexity=89, learning_rate='auto', init='random')
-individuos = tsne.fit_transform(datos_escalados)
-individuos = pd.DataFrame(individuos, index=datos_escalados.index)
+pred = modelo.predict(X_test)
+pred
 
-x = individuos.iloc[:, 0]
-y = individuos.iloc[:, 1]
+labels = ["Si", "No"]
+MC = confusion_matrix(y_test, pred, labels=labels)
+MC
 
-fig, ax = plt.subplots(figsize = (10, 6))
+def indices_general(MC, nombres = None):
+  precision_global = np.sum(MC.diagonal()) / np.sum(MC)
+  error_global     = 1 - precision_global
+  precision_categoria  = pd.DataFrame(MC.diagonal()/np.sum(MC,axis = 1)).T
+  if nombres!=None:
+    precision_categoria.columns = nombres
+    return {"Matriz de Confusión":MC, 
+            "Precisión Global":   precision_global, 
+            "Error Global":       error_global, 
+            "Precisión por categoría":precision_categoria}
 
-for cat in pred.unique():
-  no_print = ax.scatter(x[pred == cat], y[pred == cat], label = cat)
+indices = indices_general(MC, labels)
+for k in indices:
+  print("\n%s:\n%s"%(k,str(indices[k])))
 
-no_print  = ax.axhline(y = 0, color = 'dimgrey', linestyle = '--')
-no_print  = ax.axvline(x = 0, color = 'dimgrey', linestyle = '--')
-no_print  = ax.set_xlabel('Componente 1')
-no_print  = ax.set_ylabel('Componente 2')
 
-no_print = plt.legend()
-plt.show()
+
+
